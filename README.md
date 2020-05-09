@@ -52,7 +52,7 @@ Usage:
   -h, --help      show this help message
 
 DISPLAY OPTIONS
-  -c, --released-color COLOR  dot color when mouse button releaed [default: #d62728]
+  -c, --released-color COLOR  dot color when mouse button released [default: #d62728]
   -p, --pressed-color COLOR   dot color when mouse button pressed [default: #1f77b4]
   -o, --outline OUTLINE       line width of outline or 0 for filled dot [default: 0]
   -r, --radius RADIUS         dot radius in pixels [default: 5]
@@ -63,4 +63,21 @@ TIMEOUT OPTIONS
       --auto-hide-cursor      hide cursor when not moving after timeout
       --auto-hide-highlight   hide highlighter when not moving after timeout
   -t, --hide-timeout TIMEOUT  timeout for hiding when idle, in seconds [default: 3]
+
+HOTKEY OPTIONS
+      --key-quit KEY                        quit
+      --key-toggle-cursor KEY               toggle cursor visibility
+      --key-toggle-highlight KEY            toggle highlight visibility
+      --key-toggle-auto-hide-cursor KEY     toggle auto-hiding cursor when not moving
+      --key-toggle-auto-hide-highlight KEY  toggle auto-hiding highlight when not moving
+
+      Hotkeys are global and can only be used if not set yet by a different process.
+      Keys can be given with modifiers
+        'S' (shift key), 'C' (ctrl key), 'M' (alt/meta key), 'H' (super/"windows" key)
+      delimited by a '-'.
+      Keys themselves are parsed by X, so chars like a...z can be set directly,
+      special keys are named as in /usr/include/X11/keysymdef.h
+      or see, e.g. http://xahlee.info/linux/linux_show_keycode_keysym.html
+
+      Examples: 'H-Left', 'C-S-a'
 ```
