@@ -259,7 +259,7 @@ void main_loop() {
                         continue;
                     }
                     const XIRawEvent* data = (const XIRawEvent*)cookie->data;
-                    if (options.fps && (data->time - lasttime <= 1000 / TARGET_FPS)) {
+                    if (data->time - lasttime <= 1000 / TARGET_FPS) {
                         XFreeEventData(dpy, cookie);
                         continue;
                     }
@@ -335,14 +335,13 @@ int init_colors() {
 
 void sig_handler(int sig) {
     (void)sig;
+    fprintf(stderr, "Quitting...\n");
     quit();
 }
 
 int main(int argc, char* argv[]) {
     int res;
 
-    signal(SIGINT, sig_handler);
-    signal(SIGTERM, sig_handler);
 
     // TODO parse arguments
     options.radius = 5;
@@ -409,6 +408,9 @@ int main(int argc, char* argv[]) {
     if (!options.cursor_visible) {
         hide_cursor();
     }
+
+    signal(SIGINT, sig_handler);
+    signal(SIGTERM, sig_handler);
 
     main_loop();
 
