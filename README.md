@@ -16,7 +16,7 @@ screen sharing, ...
 
 ## Installation
 
-### Prerequisits
+### Prerequisites
 
 To build `highlight-pointer` you need the X11, Xext, Xfixes, and Xi
 libraries. On Debian/Ubuntu, just install these using
