@@ -364,6 +364,18 @@ void print_usage(const char* name) {
         name);
 }
 
+static struct option long_options[] = {{"auto-hide-cursor", no_argument, &options.auto_hide_cursor, 1},
+                                       {"auto-hide-highlight", no_argument, &options.auto_hide_highlight, 1},
+                                       {"help", no_argument, NULL, 'h'},
+                                       {"hide-highlight", no_argument, &options.highlight_visible, 0},
+                                       {"hide-timeout", required_argument, NULL, 't'},
+                                       {"outline", required_argument, NULL, 'o'},
+                                       {"pressed-color", required_argument, NULL, 'p'},
+                                       {"radius", required_argument, NULL, 'r'},
+                                       {"released-color", required_argument, NULL, 'c'},
+                                       {"show-cursor", no_argument, &options.cursor_visible, 1},
+                                       {NULL, 0, NULL, 0}};
+
 int set_options(int argc, char* argv[]) {
     options.highlight_visible = 1;
     options.radius = 5;
@@ -373,17 +385,6 @@ int set_options(int argc, char* argv[]) {
     options.released_color_string = "#d62728";
 
     while (1) {
-        static struct option long_options[] = {{"auto-hide-cursor", no_argument, &options.auto_hide_cursor, 1},
-                                               {"auto-hide-highlight", no_argument, &options.auto_hide_highlight, 1},
-                                               {"help", no_argument, 0, 'h'},
-                                               {"hide-highlight", no_argument, &options.highlight_visible, 0},
-                                               {"hide-timeout", required_argument, 0, 't'},
-                                               {"outline", required_argument, 0, 'o'},
-                                               {"pressed-color", required_argument, 0, 'p'},
-                                               {"radius", required_argument, 0, 'r'},
-                                               {"released-color", required_argument, 0, 'c'},
-                                               {"show-cursor", no_argument, &options.cursor_visible, 1},
-                                               {0, 0, 0, 0}};
         int c = getopt_long(argc, argv, "c:ho:p:r:t:", long_options, NULL);
         if (c < 0) {
             break;
