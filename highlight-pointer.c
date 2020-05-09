@@ -47,8 +47,39 @@
 static Display* dpy;
 static GC gc = 0;
 static Window win;
+static Window root;
 static int screen;
 static int selfpipe[2]; /* for self-pipe trick to cancel select() call */
+
+#define KEY_MODMAP_SIZE 4
+static struct {
+    char symbol;
+    unsigned int modifiers;
+} key_modifier_mapping[KEY_MODMAP_SIZE] = {
+    {'S', ShiftMask},   /* shift */
+    {'C', ControlMask}, /* control */
+    {'M', Mod1Mask},    /* alt/meta */
+    {'H', Mod4Mask}     /* super/"windows" */
+};
+
+#define KEY_OPTION_OFFSET 1000
+#define KEY_ARRAY_SIZE 5
+struct {
+    KeySym keysym;
+    unsigned int modifiers;
+} keys[KEY_ARRAY_SIZE] = {
+#define KEY_QUIT 0
+    {NoSymbol, 0},
+#define KEY_TOGGLE_CURSOR 1
+    {NoSymbol, 0},
+#define KEY_TOGGLE_HIGHLIGHT 2
+    {NoSymbol, 0},
+#define KEY_TOGGLE_AUTOHIDE_CURSOR 3
+    {NoSymbol, 0},
+#define KEY_TOGGLE_AUTOHIDE_HIGHLIGHT 4
+    {NoSymbol, 0}};
+
+static unsigned int numlockmask = 0;
 
 static XColor pressed_color;
 static XColor released_color;
@@ -108,7 +139,7 @@ int init_events() {
     events.mask = mask;
     events.mask_len = sizeof(mask);
 
-    XISelectEvents(dpy, RootWindow(dpy, screen), &events, 1);
+    XISelectEvents(dpy, root, &events, 1);
 
     return 0;
 }
@@ -117,7 +148,7 @@ int get_pointer_position(int* x, int* y) {
     Window w;
     int i;
     unsigned int ui;
-    return XQueryPointer(dpy, XRootWindow(dpy, screen), &w, &w, x, y, &i, &i, &ui);
+    return XQueryPointer(dpy, root, &w, &w, x, y, &i, &i, &ui);
 }
 
 void set_window_mask() {
@@ -146,8 +177,8 @@ int init_window() {
     win_attributes.event_mask = ExposureMask | VisibilityChangeMask;
     win_attributes.override_redirect = True;
 
-    win = XCreateWindow(dpy, XRootWindow(dpy, screen), 0, 0, 2 * options.radius + 2, 2 * options.radius + 2, 0, DefaultDepth(dpy, screen), InputOutput,
-                        DefaultVisual(dpy, screen), CWEventMask | CWOverrideRedirect, &win_attributes);
+    win = XCreateWindow(dpy, root, 0, 0, 2 * options.radius + 2, 2 * options.radius + 2, 0, DefaultDepth(dpy, screen), InputOutput, DefaultVisual(dpy, screen),
+                        CWEventMask | CWOverrideRedirect, &win_attributes);
     if (!win) {
         fprintf(stderr, "Can't create highlight window\n");
         return 1;
@@ -189,7 +220,7 @@ int init_window() {
     xclient.data.l[2] = 0;
     xclient.data.l[3] = 1;
     xclient.data.l[4] = 0;
-    XSendEvent(dpy, XRootWindow(dpy, screen), False, SubstructureRedirectMask | SubstructureNotifyMask, (XEvent*)&xclient);
+    XSendEvent(dpy, root, False, SubstructureRedirectMask | SubstructureNotifyMask, (XEvent*)&xclient);
 
     /* let clicks fall through */
     /* after https://stackoverflow.com/a/9279747 */
@@ -219,6 +250,45 @@ void redraw() {
 }
 
 void quit() { write(selfpipe[1], "\0", 1); }
+
+void handle_key(KeySym keysym, unsigned int modifiers) {
+    modifiers = modifiers & ~(numlockmask | LockMask);
+    int k;
+    for (k = 0; k < KEY_ARRAY_SIZE; ++k) {
+        if (keys[k].keysym == keysym && keys[k].modifiers == modifiers) {
+            break;
+        }
+    }
+    switch (k) {
+        case KEY_QUIT:
+            quit();
+            break;
+
+        case KEY_TOGGLE_CURSOR:
+            if (cursor_visible) {
+                hide_cursor();
+            } else {
+                show_cursor();
+            }
+            break;
+
+        case KEY_TOGGLE_HIGHLIGHT:
+            if (highlight_visible) {
+                hide_highlight();
+            } else {
+                show_highlight();
+            }
+            break;
+
+        case KEY_TOGGLE_AUTOHIDE_CURSOR:
+            options.auto_hide_cursor = 1 - options.auto_hide_cursor;
+            break;
+
+        case KEY_TOGGLE_AUTOHIDE_HIGHLIGHT:
+            options.auto_hide_highlight = 1 - options.auto_hide_highlight;
+            break;
+    }
+}
 
 void main_loop() {
     XEvent ev;
@@ -294,6 +364,13 @@ void main_loop() {
                     continue;
                 }
 
+                if (ev.type == KeyPress) {
+                    KeySym keysym = XLookupKeysym(&ev.xkey, 0);
+                    if (keysym != NoSymbol) {
+                        handle_key(keysym, ev.xkey.state);
+                    }
+                    continue;
+                }
                 if (ev.type == Expose) {
                     redraw();
                     continue;
@@ -335,10 +412,65 @@ int init_colors() {
     return 0;
 }
 
+int grab_keys() {
+    /* after https://git.suckless.org/dwm/file/dwm.c.html */
+    numlockmask = 0;
+    unsigned int numlockkeycode = XKeysymToKeycode(dpy, XK_Num_Lock);
+    if (numlockkeycode) {
+        XModifierKeymap* modmap = XGetModifierMapping(dpy);
+        for (int i = 0; i < 8; ++i) {
+            for (int j = 0; j < modmap->max_keypermod; ++j) {
+                if (modmap->modifiermap[i * modmap->max_keypermod + j] == numlockkeycode) {
+                    numlockmask = (1 << i);
+                }
+            }
+        }
+        XFreeModifiermap(modmap);
+    }
+
+    unsigned int modifiers[] = {0, LockMask, numlockmask, numlockmask | LockMask};
+    for (int i = 0; i < KEY_ARRAY_SIZE; ++i) {
+        if (keys[i].keysym != NoSymbol) {
+            KeyCode c = XKeysymToKeycode(dpy, keys[i].keysym);
+            if (!c) {
+                fprintf(stderr, "Could not convert key to keycode\n");
+                return 1;
+            }
+            for (int j = 0; j < 2; ++j) {
+                XGrabKey(dpy, c, keys[i].modifiers | modifiers[j], root, 1, GrabModeAsync, GrabModeAsync);
+            }
+        }
+    }
+    return 0;
+}
+
 void sig_handler(int sig) {
     (void)sig;
-    fprintf(stderr, "Quitting...\n");
     quit();
+}
+
+int parse_key(const char* s, int k) {
+    keys[k].modifiers = 0;
+
+    int i;
+    while (s[0] != '\0' && s[1] == '-') {
+        for (i = 0; i < KEY_MODMAP_SIZE; ++i) {
+            if (key_modifier_mapping[i].symbol == s[0]) {
+                keys[k].modifiers |= key_modifier_mapping[i].modifiers;
+                break;
+            }
+        }
+        if (i == KEY_MODMAP_SIZE) {
+            return 1;
+        }
+        s += 2;
+    }
+
+    keys[k].keysym = XStringToKeysym(s);
+    if (keys[k].keysym == NoSymbol) {
+        return 1;
+    }
+    return 0;
 }
 
 void print_usage(const char* name) {
@@ -349,7 +481,7 @@ void print_usage(const char* name) {
         "  -h, --help      show this help message\n"
         "\n"
         "DISPLAY OPTIONS\n"
-        "  -c, --released-color COLOR  dot color when mouse button releaed [default: #d62728]\n"
+        "  -c, --released-color COLOR  dot color when mouse button released [default: #d62728]\n"
         "  -p, --pressed-color COLOR   dot color when mouse button pressed [default: #1f77b4]\n"
         "  -o, --outline OUTLINE       line width of outline or 0 for filled dot [default: 0]\n"
         "  -r, --radius RADIUS         dot radius in pixels [default: 5]\n"
@@ -360,7 +492,23 @@ void print_usage(const char* name) {
         "      --auto-hide-cursor      hide cursor when not moving after timeout\n"
         "      --auto-hide-highlight   hide highlighter when not moving after timeout\n"
         "  -t, --hide-timeout TIMEOUT  timeout for hiding when idle, in seconds [default: 3]\n"
-        "",
+        "\n"
+        "HOTKEY OPTIONS\n"
+        "      --key-quit KEY                        quit\n"
+        "      --key-toggle-cursor KEY               toggle cursor visibility\n"
+        "      --key-toggle-highlight KEY            toggle highlight visibility\n"
+        "      --key-toggle-auto-hide-cursor KEY     toggle auto-hiding cursor when not moving\n"
+        "      --key-toggle-auto-hide-highlight KEY  toggle auto-hiding highlight when not moving\n"
+        "\n"
+        "      Hotkeys are global and can only be used if not set yet by a different process.\n"
+        "      Keys can be given with modifiers\n"
+        "        'S' (shift key), 'C' (ctrl key), 'M' (alt/meta key), 'H' (super/\"windows\" key)\n"
+        "      delimited by a '-'.\n"
+        "      Keys themselves are parsed by X, so chars like a...z can be set directly,\n"
+        "      special keys are named as in /usr/include/X11/keysymdef.h\n"
+        "      or see, e.g. http://xahlee.info/linux/linux_show_keycode_keysym.html\n"
+        "\n"
+        "      Examples: 'H-Left', 'C-S-a'\n",
         name);
 }
 
@@ -374,6 +522,11 @@ static struct option long_options[] = {{"auto-hide-cursor", no_argument, &option
                                        {"radius", required_argument, NULL, 'r'},
                                        {"released-color", required_argument, NULL, 'c'},
                                        {"show-cursor", no_argument, &options.cursor_visible, 1},
+                                       {"key-quit", required_argument, NULL, KEY_QUIT + KEY_OPTION_OFFSET},
+                                       {"key-toggle-cursor", required_argument, NULL, KEY_TOGGLE_CURSOR + KEY_OPTION_OFFSET},
+                                       {"key-toggle-highlight", required_argument, NULL, KEY_TOGGLE_HIGHLIGHT + KEY_OPTION_OFFSET},
+                                       {"key-toggle-auto-hide-cursor", required_argument, NULL, KEY_TOGGLE_AUTOHIDE_CURSOR + KEY_OPTION_OFFSET},
+                                       {"key-toggle-auto-hide-highlight", required_argument, NULL, KEY_TOGGLE_AUTOHIDE_HIGHLIGHT + KEY_OPTION_OFFSET},
                                        {NULL, 0, NULL, 0}};
 
 int set_options(int argc, char* argv[]) {
@@ -388,6 +541,14 @@ int set_options(int argc, char* argv[]) {
         int c = getopt_long(argc, argv, "c:ho:p:r:t:", long_options, NULL);
         if (c < 0) {
             break;
+        }
+        if (c >= KEY_OPTION_OFFSET && c < KEY_OPTION_OFFSET + KEY_ARRAY_SIZE) {
+            int res = parse_key(optarg, c - KEY_OPTION_OFFSET);
+            if (res) {
+                fprintf(stderr, "Could not parse key value %s\n", optarg);
+                return 1;
+            }
+            continue;
         }
         switch (c) {
             case 0:
@@ -437,6 +598,17 @@ int set_options(int argc, char* argv[]) {
     return 0;
 }
 
+int xerror_handler(Display* dpy_p, XErrorEvent* err) {
+    if (err->request_code == 33 /* XGrabKey */ && err->error_code == BadAccess) {
+        fprintf(stderr, "Key combination already grabbed by a different process\n");
+        exit(1);
+    }
+    char buf[1024];
+    XGetErrorText(dpy_p, err->error_code, buf, 1024);
+    fprintf(stderr, "X error: %s\n", buf);
+    exit(1);
+}
+
 int main(int argc, char* argv[]) {
     int res;
 
@@ -452,7 +624,9 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Can't open display");
         return 1;
     }
+    XSetErrorHandler(xerror_handler);
     screen = DefaultScreen(dpy);
+    root = RootWindow(dpy, screen);
 
     int event, error, opcode;
     if (!XShapeQueryExtension(dpy, &event, &error)) {
@@ -491,6 +665,11 @@ int main(int argc, char* argv[]) {
         return res;
     }
 
+    res = grab_keys();
+    if (res) {
+        return res;
+    }
+
     XAllowEvents(dpy, SyncBoth, CurrentTime);
     XSync(dpy, False);
 
@@ -510,6 +689,7 @@ int main(int argc, char* argv[]) {
     if (!cursor_visible) {
         show_cursor();
     }
+    XUngrabKey(dpy, AnyKey, AnyModifier, root);
     XUnmapWindow(dpy, win);
     XFreeGC(dpy, gc);
     XDestroyWindow(dpy, win);

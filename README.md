@@ -13,6 +13,8 @@ screen sharing, ...
 - Highlight using a filled or outlined dot
 - Auto-hide highlight and/or cursor after a time when not moving and
   re-show when moving again
+- Global hotkeys for toggling cursor or highlighter and for toggling
+  auto-hiding
 
 ## Installation
 
