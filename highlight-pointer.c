@@ -34,8 +34,10 @@
 #include <X11/extensions/Xfixes.h>
 #include <X11/extensions/shape.h>
 #include <errno.h>
+#include <getopt.h>
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/select.h>
 #include <unistd.h>
@@ -339,20 +341,110 @@ void sig_handler(int sig) {
     quit();
 }
 
+void print_usage(const char* name) {
+    printf(
+        "Usage:\n"
+        "  %s [options]\n"
+        "\n"
+        "  -h, --help      show this help message\n"
+        "\n"
+        "DISPLAY OPTIONS\n"
+        "  -c, --released-color COLOR  dot color when mouse button releaed [default: #d62728]\n"
+        "  -p, --pressed-color COLOR   dot color when mouse button pressed [default: #1f77b4]\n"
+        "  -o, --outline OUTLINE       line width of outline or 0 for filled dot [default: 0]\n"
+        "  -r, --radius RADIUS         dot radius in pixels [default: 5]\n"
+        "      --hide-highlight        start with highlighter hidden\n"
+        "      --show-cursor           start with cursor shown\n"
+        "\n"
+        "TIMEOUT OPTIONS\n"
+        "      --auto-hide-cursor      hide cursor when not moving after timeout\n"
+        "      --auto-hide-highlight   hide highlighter when not moving after timeout\n"
+        "  -t, --hide-timeout TIMEOUT  timeout for hiding when idle, in seconds [default: 3]\n"
+        "",
+        name);
+}
+
+int set_options(int argc, char* argv[]) {
+    options.highlight_visible = 1;
+    options.radius = 5;
+    options.outline = 0;
+    options.hide_timeout = 3;
+    options.pressed_color_string = "#1f77b4";
+    options.released_color_string = "#d62728";
+
+    while (1) {
+        static struct option long_options[] = {{"auto-hide-cursor", no_argument, &options.auto_hide_cursor, 1},
+                                               {"auto-hide-highlight", no_argument, &options.auto_hide_highlight, 1},
+                                               {"help", no_argument, 0, 'h'},
+                                               {"hide-highlight", no_argument, &options.highlight_visible, 0},
+                                               {"hide-timeout", required_argument, 0, 't'},
+                                               {"outline", required_argument, 0, 'o'},
+                                               {"pressed-color", required_argument, 0, 'p'},
+                                               {"radius", required_argument, 0, 'r'},
+                                               {"released-color", required_argument, 0, 'c'},
+                                               {"show-cursor", no_argument, &options.cursor_visible, 1},
+                                               {0, 0, 0, 0}};
+        int c = getopt_long(argc, argv, "c:ho:p:r:t:", long_options, NULL);
+        if (c < 0) {
+            break;
+        }
+        switch (c) {
+            case 0:
+                break;
+
+            case 'c':
+                options.released_color_string = optarg;
+                break;
+
+            case 'h':
+                print_usage(argv[0]);
+                return -1;
+
+            case 'o':
+                options.outline = atoi(optarg);
+                if (options.outline < 0) {
+                    fprintf(stderr, "Invalid outline value %s\n", optarg);
+                    return 1;
+                }
+                break;
+
+            case 'p':
+                options.pressed_color_string = optarg;
+                break;
+
+            case 'r':
+                options.radius = atoi(optarg);
+                if (options.radius <= 0) {
+                    fprintf(stderr, "Invalid radius value %s\n", optarg);
+                    return 1;
+                }
+                break;
+
+            case 't':
+                options.hide_timeout = atoi(optarg);
+                if (options.hide_timeout <= 0) {
+                    fprintf(stderr, "Invalid timeout value %s\n", optarg);
+                    return 1;
+                }
+                break;
+
+            default:
+                print_usage(argv[0]);
+                return 1;
+        }
+    }
+    return 0;
+}
+
 int main(int argc, char* argv[]) {
     int res;
 
-
-    // TODO parse arguments
-    options.radius = 5;
-    options.outline = 0;
-    options.cursor_visible = 1;
-    options.highlight_visible = 1;
-    options.auto_hide_cursor = 0;
-    options.auto_hide_highlight = 1;
-    options.hide_timeout = 3;
-    options.pressed_color_string = "#0000ff";
-    options.released_color_string = "#ff0000";
+    res = set_options(argc, argv);
+    if (res < 0) {
+        return 0;
+    } else if (res > 0) {
+        return res;
+    }
 
     dpy = XOpenDisplay(NULL); /* defaults to DISPLAY env var */
     if (!dpy) {
