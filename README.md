@@ -36,7 +36,12 @@ make
 ## Usage
 
 Just call the `highlight-pointer` binary and include command line
-options if you want to change color, size, etc.:
+options if you want to change color, size, etc. (see below).
+
+To quit the program press `Ctrl+C` in the terminal where you started
+it, or run `killall highlight-pointer`.
+
+### Options
 
 ```
 Usage:
