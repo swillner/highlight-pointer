@@ -3,6 +3,10 @@
 Highlight mouse pointer/cursor using a dot - useful for presentations,
 screen sharing, ...
 
+## Demo
+
+![](demo.gif)
+
 ## Features
 
 - Very lightweight, should work on any Linux/Unix system running an X
