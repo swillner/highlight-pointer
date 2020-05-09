@@ -33,10 +33,12 @@
 #include <X11/extensions/XInput2.h>
 #include <X11/extensions/Xfixes.h>
 #include <X11/extensions/shape.h>
+#include <errno.h>
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/select.h>
+#include <unistd.h>
 
 #define TARGET_FPS 0
 
@@ -44,13 +46,13 @@ static Display* dpy;
 static GC gc = 0;
 static Window win;
 static int screen;
+static int selfpipe[2]; /* for self-pipe trick to cancel select() call */
 
 static XColor pressed_color;
 static XColor released_color;
 static int button_pressed = 0;
 static int cursor_visible = 1;
 static int highlight_visible = 0;
-static int running = 1;
 
 static struct {
     char* pressed_color_string;
@@ -214,6 +216,8 @@ void redraw() {
     }
 }
 
+void quit() { write(selfpipe[1], "\0", 1); }
+
 void main_loop() {
     XEvent ev;
     fd_set fds;
@@ -224,16 +228,27 @@ void main_loop() {
 #if TARGET_FPS > 0
     Time lasttime = 0;
 #endif
-    XWindowChanges wc;
 
-    while (running) {
+    pipe(selfpipe);
+
+    while (1) {
         XFlush(dpy);
         FD_ZERO(&fds);
         FD_SET(fd, &fds);
+        FD_SET(selfpipe[0], &fds);
         timeout.tv_usec = 0;
         timeout.tv_sec = options.hide_timeout;
-        n = select(fd + 1, &fds, NULL, NULL, &timeout);
+        n = select((fd > selfpipe[0] ? fd : selfpipe[0]) + 1, &fds, NULL, NULL, &timeout);
+        if (n < 0) {
+            if (errno != EINTR) {
+                perror("select() failed");
+            }
+            break;
+        }
         if (n > 0) {
+            if (FD_ISSET(selfpipe[0], &fds)) {
+                break;
+            }
             while (XPending(dpy)) {
                 XNextEvent(dpy, &ev);
 
@@ -287,15 +302,13 @@ void main_loop() {
                     continue;
                 }
             }
-        } else if (n == 0) {
+        } else {
             if (options.auto_hide_cursor && cursor_visible) {
                 hide_cursor();
             }
             if (options.auto_hide_highlight && highlight_visible) {
                 hide_highlight();
             }
-        } else {
-            running = 0;
         }
     }
 }
@@ -322,7 +335,7 @@ int init_colors() {
 
 void sig_handler(int sig) {
     (void)sig;
-    running = 0;
+    quit();
 }
 
 int main(int argc, char* argv[]) {
