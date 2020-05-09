@@ -18,6 +18,10 @@ screen sharing, ...
 
 ## Installation
 
+Download the `highlight-pointer` binary from the [releases
+page](https://github.com/swillner/highlight-pointer/releases/latest)
+or see below to build yourself.
+
 ### Prerequisites
 
 To build `highlight-pointer` you need the X11, Xext, Xfixes, and Xi
