@@ -103,12 +103,12 @@ static void redraw();
 static int get_pointer_position(int* x, int* y);
 
 void show_cursor() {
-    XFixesShowCursor(dpy, win);
+    XFixesShowCursor(dpy, root);
     cursor_visible = 1;
 }
 
 void hide_cursor() {
-    XFixesHideCursor(dpy, win);
+    XFixesHideCursor(dpy, root);
     cursor_visible = 0;
 }
 
