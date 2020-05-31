@@ -265,19 +265,21 @@ void handle_key(KeySym keysym, unsigned int modifiers) {
             break;
 
         case KEY_TOGGLE_CURSOR:
-            if (cursor_visible) {
+            if (options.cursor_visible) {
                 hide_cursor();
             } else {
                 show_cursor();
             }
+            options.cursor_visible = 1 - options.cursor_visible;
             break;
 
         case KEY_TOGGLE_HIGHLIGHT:
-            if (highlight_visible) {
+            if (options.highlight_visible) {
                 hide_highlight();
             } else {
                 show_highlight();
             }
+            options.highlight_visible = 1 - options.highlight_visible;
             break;
 
         case KEY_TOGGLE_AUTOHIDE_CURSOR:
@@ -339,10 +341,10 @@ void main_loop() {
                     XFreeEventData(dpy, cookie);
 #endif
                     if (cookie->evtype == XI_RawMotion) {
-                        if (options.auto_hide_cursor && !cursor_visible) {
+                        if (options.auto_hide_cursor && options.cursor_visible && !cursor_visible) {
                             show_cursor();
                         }
-                        if (options.auto_hide_highlight && !highlight_visible) {
+                        if (options.auto_hide_highlight && options.highlight_visible && !highlight_visible) {
                             show_highlight();
                         } else if (highlight_visible) {
                             get_pointer_position(&x, &y);
@@ -530,6 +532,9 @@ static struct option long_options[] = {{"auto-hide-cursor", no_argument, &option
                                        {NULL, 0, NULL, 0}};
 
 int set_options(int argc, char* argv[]) {
+    options.auto_hide_cursor = 0;
+    options.auto_hide_highlight = 0;
+    options.cursor_visible = 0;
     options.highlight_visible = 1;
     options.radius = 5;
     options.outline = 0;
