@@ -608,6 +608,10 @@ int xerror_handler(Display* dpy_p, XErrorEvent* err) {
         fprintf(stderr, "Key combination already grabbed by a different process\n");
         exit(1);
     }
+    if (err->error_code == BadAtom) {
+        fprintf(stderr, "X warning: BadAtom for %d-%d\n", err->request_code, err->minor_code);
+        return 0;
+    }
     char buf[1024];
     XGetErrorText(dpy_p, err->error_code, buf, 1024);
     fprintf(stderr, "X error: %s\n", buf);
