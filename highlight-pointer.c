@@ -265,12 +265,12 @@ void handle_key(KeySym keysym, unsigned int modifiers) {
             break;
 
         case KEY_TOGGLE_CURSOR:
-            if (options.cursor_visible) {
-                hide_cursor();
-            } else {
-                show_cursor();
-            }
             options.cursor_visible = 1 - options.cursor_visible;
+            if (options.cursor_visible && !cursor_visible) {
+                show_cursor();
+            } else if (!options.cursor_visible && cursor_visible) {
+                hide_cursor();
+            }
             break;
 
         case KEY_TOGGLE_HIGHLIGHT:
