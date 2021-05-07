@@ -510,7 +510,10 @@ void print_usage(const char* name) {
         "      special keys are named as in /usr/include/X11/keysymdef.h\n"
         "      or see, e.g. http://xahlee.info/linux/linux_show_keycode_keysym.html\n"
         "\n"
-        "      Examples: 'H-Left', 'C-S-a'\n",
+        "      Examples: 'H-Left', 'C-S-a'\n"
+        "\n"
+        "SUPPORT\n"
+        "      Report bugs to issues tracker: https://github.com/swillner/highlight-pointer/issues",
         name);
 }
 
