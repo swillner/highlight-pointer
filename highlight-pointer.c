@@ -102,17 +102,17 @@ static struct {
 static void redraw();
 static int get_pointer_position(int* x, int* y);
 
-void show_cursor() {
+static void show_cursor() {
     XFixesShowCursor(dpy, root);
     cursor_visible = 1;
 }
 
-void hide_cursor() {
+static void hide_cursor() {
     XFixesHideCursor(dpy, root);
     cursor_visible = 0;
 }
 
-void show_highlight() {
+static void show_highlight() {
     int x, y;
     get_pointer_position(&x, &y);
     XMoveWindow(dpy, win, x - options.radius - 1, y - options.radius - 1);
@@ -121,12 +121,12 @@ void show_highlight() {
     highlight_visible = 1;
 }
 
-void hide_highlight() {
+static void hide_highlight() {
     XUnmapWindow(dpy, win);
     highlight_visible = 0;
 }
 
-int init_events() {
+static int init_events() {
     XIEventMask events;
     unsigned char mask[(XI_LASTEVENT + 7) / 8];
     memset(mask, 0, sizeof(mask));
@@ -144,14 +144,14 @@ int init_events() {
     return 0;
 }
 
-int get_pointer_position(int* x, int* y) {
+static int get_pointer_position(int* x, int* y) {
     Window w;
     int i;
     unsigned int ui;
     return XQueryPointer(dpy, root, &w, &w, x, y, &i, &i, &ui);
 }
 
-void set_window_mask() {
+static void set_window_mask() {
     XGCValues gc_values;
     Pixmap mask = XCreatePixmap(dpy, win, 2 * options.radius + 2, 2 * options.radius + 2, 1);
     GC mask_gc = XCreateGC(dpy, mask, 0, &gc_values);
@@ -172,7 +172,7 @@ void set_window_mask() {
     XFreePixmap(dpy, mask);
 }
 
-int init_window() {
+static int init_window() {
     XSetWindowAttributes win_attributes;
     win_attributes.event_mask = ExposureMask | VisibilityChangeMask;
     win_attributes.override_redirect = True;
@@ -239,7 +239,7 @@ int init_window() {
     return 0;
 }
 
-void redraw() {
+static void redraw() {
     XSetForeground(dpy, gc, button_pressed ? pressed_color.pixel : released_color.pixel);
     if (options.outline) {
         XSetLineAttributes(dpy, gc, options.outline, LineSolid, CapButt, JoinBevel);
@@ -249,9 +249,9 @@ void redraw() {
     }
 }
 
-void quit() { write(selfpipe[1], "\0", 1); }
+static void quit() { write(selfpipe[1], "", 1); }
 
-void handle_key(KeySym keysym, unsigned int modifiers) {
+static void handle_key(KeySym keysym, unsigned int modifiers) {
     modifiers = modifiers & ~(numlockmask | LockMask);
     int k;
     for (k = 0; k < KEY_ARRAY_SIZE; ++k) {
@@ -292,7 +292,7 @@ void handle_key(KeySym keysym, unsigned int modifiers) {
     }
 }
 
-void main_loop() {
+static void main_loop() {
     XEvent ev;
     fd_set fds;
     int fd = ConnectionNumber(dpy);
@@ -394,7 +394,7 @@ void main_loop() {
     }
 }
 
-int init_colors() {
+static int init_colors() {
     int res;
 
     Colormap colormap = DefaultColormap(dpy, screen);
@@ -414,7 +414,7 @@ int init_colors() {
     return 0;
 }
 
-int grab_keys() {
+static int grab_keys() {
     /* after https://git.suckless.org/dwm/file/dwm.c.html */
     numlockmask = 0;
     unsigned int numlockkeycode = XKeysymToKeycode(dpy, XK_Num_Lock);
@@ -446,12 +446,12 @@ int grab_keys() {
     return 0;
 }
 
-void sig_handler(int sig) {
+static void sig_handler(int sig) {
     (void)sig;
     quit();
 }
 
-int parse_key(const char* s, int k) {
+static int parse_key(const char* s, int k) {
     keys[k].modifiers = 0;
 
     int i;
@@ -475,7 +475,7 @@ int parse_key(const char* s, int k) {
     return 0;
 }
 
-void print_usage(const char* name) {
+static void print_usage(const char* name) {
     printf(
         "Usage:\n"
         "  %s [options]\n"
@@ -531,7 +531,7 @@ static struct option long_options[] = {{"auto-hide-cursor", no_argument, &option
                                        {"key-toggle-auto-hide-highlight", required_argument, NULL, KEY_TOGGLE_AUTOHIDE_HIGHLIGHT + KEY_OPTION_OFFSET},
                                        {NULL, 0, NULL, 0}};
 
-int set_options(int argc, char* argv[]) {
+static int set_options(int argc, char* argv[]) {
     options.auto_hide_cursor = 0;
     options.auto_hide_highlight = 0;
     options.cursor_visible = 0;
@@ -603,7 +603,7 @@ int set_options(int argc, char* argv[]) {
     return 0;
 }
 
-int xerror_handler(Display* dpy_p, XErrorEvent* err) {
+static int xerror_handler(Display* dpy_p, XErrorEvent* err) {
     if (err->request_code == 33 /* XGrabKey */ && err->error_code == BadAccess) {
         fprintf(stderr, "Key combination already grabbed by a different process\n");
         exit(1);
@@ -630,7 +630,7 @@ int main(int argc, char* argv[]) {
 
     dpy = XOpenDisplay(NULL); /* defaults to DISPLAY env var */
     if (!dpy) {
-        fprintf(stderr, "Can't open display");
+        fprintf(stderr, "Can't open display\n");
         return 1;
     }
     XSetErrorHandler(xerror_handler);
@@ -639,12 +639,12 @@ int main(int argc, char* argv[]) {
 
     int event, error, opcode;
     if (!XShapeQueryExtension(dpy, &event, &error)) {
-        fprintf(stderr, "XShape extension not supported");
+        fprintf(stderr, "XShape extension not supported\n");
         return 1;
     }
 
     if (!XQueryExtension(dpy, "XInputExtension", &opcode, &event, &error)) {
-        fprintf(stderr, "XInput extension not supported");
+        fprintf(stderr, "XInput extension not supported\n");
         return 1;
     }
 
@@ -652,10 +652,10 @@ int main(int argc, char* argv[]) {
     int minor_version = 2;
     res = XIQueryVersion(dpy, &major_version, &minor_version);
     if (res == BadRequest) {
-        fprintf(stderr, "XInput2 extension version 2.2 not supported");
+        fprintf(stderr, "XInput2 extension version 2.2 not supported\n");
         return 1;
     } else if (res != Success) {
-        fprintf(stderr, "Can't query XInput version");
+        fprintf(stderr, "Can't query XInput version\n");
         return 1;
     }
 
