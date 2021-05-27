@@ -374,7 +374,9 @@ static void main_loop() {
                     continue;
                 }
                 if (ev.type == Expose) {
-                    redraw();
+                    if (ev.xexpose.count < 1) {
+                        redraw();
+                    }
                     continue;
                 }
                 if (ev.type == VisibilityNotify) {
