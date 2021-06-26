@@ -114,8 +114,9 @@ static void hide_cursor() {
 
 static void show_highlight() {
     int x, y;
+    int total_radius = options.radius + options.outline;
     get_pointer_position(&x, &y);
-    XMoveWindow(dpy, win, x - options.radius - 1, y - options.radius - 1);
+    XMoveWindow(dpy, win, x - total_radius - 1, y - total_radius - 1);
     XMapWindow(dpy, win);
     redraw();
     highlight_visible = 1;
@@ -153,17 +154,18 @@ static int get_pointer_position(int* x, int* y) {
 
 static void set_window_mask() {
     XGCValues gc_values;
-    Pixmap mask = XCreatePixmap(dpy, win, 2 * options.radius + 2, 2 * options.radius + 2, 1);
+    int total_radius = options.radius + options.outline;
+    Pixmap mask = XCreatePixmap(dpy, win, 2 * total_radius + 2, 2 * total_radius + 2, 1);
     GC mask_gc = XCreateGC(dpy, mask, 0, &gc_values);
     XSetForeground(dpy, mask_gc, 0);
-    XFillRectangle(dpy, mask, mask_gc, 0, 0, 2 * options.radius + 2, 2 * options.radius + 2);
+    XFillRectangle(dpy, mask, mask_gc, options.outline, options.outline, 2 * total_radius + 2, 2 * total_radius + 2);
 
     XSetForeground(dpy, mask_gc, 1);
     if (options.outline) {
         XSetLineAttributes(dpy, mask_gc, options.outline, LineSolid, CapButt, JoinBevel);
-        XDrawArc(dpy, mask, mask_gc, 0, 0, 2 * options.radius + 1, 2 * options.radius + 1, 0, 360 * 64);
+        XDrawArc(dpy, mask, mask_gc, options.outline, options.outline, 2 * options.radius + 1, 2 * options.radius + 1, 0, 360 * 64);
     } else {
-        XFillArc(dpy, mask, mask_gc, 0, 0, 2 * options.radius + 1, 2 * options.radius + 1, 0, 360 * 64);
+        XFillArc(dpy, mask, mask_gc, options.outline, options.outline, 2 * options.radius + 1, 2 * options.radius + 1, 0, 360 * 64);
     }
 
     XShapeCombineMask(dpy, win, ShapeBounding, 0, 0, mask, ShapeSet);
@@ -173,11 +175,12 @@ static void set_window_mask() {
 }
 
 static int init_window() {
+    int total_radius = options.radius + options.outline;
     XSetWindowAttributes win_attributes;
     win_attributes.event_mask = ExposureMask | VisibilityChangeMask;
     win_attributes.override_redirect = True;
 
-    win = XCreateWindow(dpy, root, 0, 0, 2 * options.radius + 2, 2 * options.radius + 2, 0, DefaultDepth(dpy, screen), InputOutput, DefaultVisual(dpy, screen),
+    win = XCreateWindow(dpy, root, options.outline, options.outline, 2 * total_radius + 2, 2 * total_radius + 2, 0, DefaultDepth(dpy, screen), InputOutput, DefaultVisual(dpy, screen),
                         CWEventMask | CWOverrideRedirect, &win_attributes);
     if (!win) {
         fprintf(stderr, "Can't create highlight window\n");
@@ -243,9 +246,9 @@ static void redraw() {
     XSetForeground(dpy, gc, button_pressed ? pressed_color.pixel : released_color.pixel);
     if (options.outline) {
         XSetLineAttributes(dpy, gc, options.outline, LineSolid, CapButt, JoinBevel);
-        XDrawArc(dpy, win, gc, 0, 0, 2 * options.radius + 1, 2 * options.radius + 1, 0, 360 * 64);
+        XDrawArc(dpy, win, gc, options.outline, options.outline, 2 * options.radius + 1, 2 * options.radius + 1, 0, 360 * 64);
     } else {
-        XFillArc(dpy, win, gc, 0, 0, 2 * options.radius + 1, 2 * options.radius + 1, 0, 360 * 64);
+        XFillArc(dpy, win, gc, options.outline, options.outline, 2 * options.radius + 1, 2 * options.radius + 1, 0, 360 * 64);
     }
 }
 
@@ -298,6 +301,7 @@ static void main_loop() {
     int fd = ConnectionNumber(dpy);
     struct timeval timeout;
     int x, y, n;
+    int total_radius = options.radius + options.outline;
     XGenericEventCookie* cookie;
 #if TARGET_FPS > 0
     Time lasttime = 0;
@@ -348,7 +352,7 @@ static void main_loop() {
                             show_highlight();
                         } else if (highlight_visible) {
                             get_pointer_position(&x, &y);
-                            XMoveWindow(dpy, win, x - options.radius - 1, y - options.radius - 1);
+                            XMoveWindow(dpy, win, x - total_radius - 1, y - total_radius - 1);
                             /* unfortunately, this causes increase of the X server's cpu usage */
                         }
                         continue;
