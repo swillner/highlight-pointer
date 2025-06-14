@@ -3,6 +3,8 @@
 Highlight mouse pointer/cursor using a dot - useful for presentations,
 screen sharing, ...
 
+(Walyand not supported, unfortunately. This is a small x11-only utility)
+
 ## Demo
 
 ![](demo.gif)
@@ -60,8 +62,8 @@ Usage:
   -h, --help      show this help message
 
 DISPLAY OPTIONS
-  -c, --released-color COLOR  dot color when mouse button released [default: #d62728]
-  -p, --pressed-color COLOR   dot color when mouse button pressed [default: #1f77b4]
+  -c, --released-color COLOR  dot color when mouse button released [default: '#d62728']
+  -p, --pressed-color COLOR   dot color when mouse button pressed [default: '#1f77b4']
   -o, --outline OUTLINE       line width of outline or 0 for filled dot [default: 0]
   -r, --radius RADIUS         dot radius in pixels [default: 5]
       --opacity OPACITY       window opacity (0.0 - 1.0) [default: 1.0]
