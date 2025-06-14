@@ -97,6 +97,7 @@ static struct {
     int highlight_visible;
     int outline;
     int radius;
+    double opacity;  // Add opacity field
 } options;
 
 static void redraw();
@@ -186,6 +187,11 @@ static int init_window() {
         fprintf(stderr, "Can't create highlight window\n");
         return 1;
     }
+
+    // Set window opacity
+    unsigned long opacity_value = (unsigned long)(options.opacity * 0xFFFFFFFF);
+    Atom opacity_atom = XInternAtom(dpy, "_NET_WM_WINDOW_OPACITY", False);
+    XChangeProperty(dpy, win, opacity_atom, XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&opacity_value, 1);
 
     XClassHint class_hint;
     XStoreName(dpy, win, "highlight-pointer");
@@ -493,6 +499,7 @@ static void print_usage(const char* name) {
         "  -p, --pressed-color COLOR   dot color when mouse button pressed [default: #1f77b4]\n"
         "  -o, --outline OUTLINE       line width of outline or 0 for filled dot [default: 0]\n"
         "  -r, --radius RADIUS         dot radius in pixels [default: 5]\n"
+        "      --opacity OPACITY       window opacity (0.0 - 1.0) [default: 1.0]\n"
         "      --hide-highlight        start with highlighter hidden\n"
         "      --show-cursor           start with cursor shown\n"
         "\n"
@@ -527,6 +534,7 @@ static struct option long_options[] = {{"auto-hide-cursor", no_argument, &option
                                        {"hide-timeout", required_argument, NULL, 't'},
                                        {"outline", required_argument, NULL, 'o'},
                                        {"pressed-color", required_argument, NULL, 'p'},
+                                       {"opacity", required_argument, NULL, 'a'},
                                        {"radius", required_argument, NULL, 'r'},
                                        {"released-color", required_argument, NULL, 'c'},
                                        {"show-cursor", no_argument, &options.cursor_visible, 1},
@@ -542,6 +550,7 @@ static int set_options(int argc, char* argv[]) {
     options.auto_hide_highlight = 0;
     options.cursor_visible = 0;
     options.highlight_visible = 1;
+    options.opacity = 1.0;
     options.radius = 5;
     options.outline = 0;
     options.hide_timeout = 3;
@@ -564,7 +573,9 @@ static int set_options(int argc, char* argv[]) {
         switch (c) {
             case 0:
                 break;
-
+            case 'a':
+                options.opacity = atof(optarg);
+                break;
             case 'c':
                 options.released_color_string = optarg;
                 break;
