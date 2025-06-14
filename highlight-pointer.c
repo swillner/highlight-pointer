@@ -181,8 +181,8 @@ static int init_window() {
     win_attributes.event_mask = ExposureMask | VisibilityChangeMask;
     win_attributes.override_redirect = True;
 
-    win = XCreateWindow(dpy, root, options.outline, options.outline, 2 * total_radius + 2, 2 * total_radius + 2, 0, DefaultDepth(dpy, screen), InputOutput, DefaultVisual(dpy, screen),
-                        CWEventMask | CWOverrideRedirect, &win_attributes);
+    win = XCreateWindow(dpy, root, options.outline, options.outline, 2 * total_radius + 2, 2 * total_radius + 2, 0, DefaultDepth(dpy, screen), InputOutput,
+                        DefaultVisual(dpy, screen), CWEventMask | CWOverrideRedirect, &win_attributes);
     if (!win) {
         fprintf(stderr, "Can't create highlight window\n");
         return 1;
@@ -292,10 +292,16 @@ static void handle_key(KeySym keysym, unsigned int modifiers) {
             break;
 
         case KEY_TOGGLE_AUTOHIDE_CURSOR:
+            if (options.auto_hide_cursor && !cursor_visible) {
+                show_cursor();
+            }
             options.auto_hide_cursor = 1 - options.auto_hide_cursor;
             break;
 
         case KEY_TOGGLE_AUTOHIDE_HIGHLIGHT:
+            if (options.auto_hide_highlight) {
+                show_highlight();
+            }
             options.auto_hide_highlight = 1 - options.auto_hide_highlight;
             break;
     }
@@ -631,7 +637,7 @@ static int xerror_handler(Display* dpy_p, XErrorEvent* err) {
     }
     char buf[1024];
     XGetErrorText(dpy_p, err->error_code, buf, 1024);
-    fprintf(stderr, "X error: %s\n", buf);
+    fprintf(stderr, "X error: %s (in %d-%d)\n", buf, err->request_code, err->minor_code);
     exit(1);
 }
 
