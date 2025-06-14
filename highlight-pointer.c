@@ -97,7 +97,7 @@ static struct {
     int highlight_visible;
     int outline;
     int radius;
-    double opacity;  // Add opacity field
+    double opacity;
 } options;
 
 static void redraw();
@@ -188,7 +188,7 @@ static int init_window() {
         return 1;
     }
 
-    // Set window opacity
+    /* Set window opacity */
     unsigned long opacity_value = (unsigned long)(options.opacity * 0xFFFFFFFF);
     Atom opacity_atom = XInternAtom(dpy, "_NET_WM_WINDOW_OPACITY", False);
     XChangeProperty(dpy, win, opacity_atom, XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&opacity_value, 1);
