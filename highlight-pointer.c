@@ -43,8 +43,6 @@
 #include <sys/select.h>
 #include <unistd.h>
 
-#define TARGET_FPS 0
-
 static Display* dpy;
 static GC gc = 0;
 static Window win;
@@ -315,9 +313,6 @@ static int main_loop() {
     int x, y, n;
     int total_radius = options.radius + options.outline;
     XGenericEventCookie* cookie;
-#if TARGET_FPS > 0
-    Time lasttime = 0;
-#endif
 
     if (pipe(selfpipe) < 0) {
         perror("pipe() failed");
@@ -329,9 +324,13 @@ static int main_loop() {
         FD_ZERO(&fds);
         FD_SET(fd, &fds);
         FD_SET(selfpipe[0], &fds);
-        timeout.tv_usec = 0;
-        timeout.tv_sec = options.hide_timeout;
-        n = select((fd > selfpipe[0] ? fd : selfpipe[0]) + 1, &fds, NULL, NULL, &timeout);
+        struct timeval* timeout_p = NULL;
+        if (options.auto_hide_cursor || options.auto_hide_highlight) {
+            timeout.tv_usec = 0;
+            timeout.tv_sec = options.hide_timeout;
+            timeout_p = &timeout;
+        }
+        n = select((fd > selfpipe[0] ? fd : selfpipe[0]) + 1, &fds, NULL, NULL, timeout_p);
         if (n < 0) {
             if (errno != EINTR) {
                 perror("select() failed");
@@ -347,18 +346,6 @@ static int main_loop() {
 
                 if (ev.type == GenericEvent) {
                     cookie = &ev.xcookie;
-#if TARGET_FPS > 0
-                    if (!XGetEventData(dpy, cookie)) {
-                        continue;
-                    }
-                    const XIRawEvent* data = (const XIRawEvent*)cookie->data;
-                    if (data->time - lasttime <= 1000 / TARGET_FPS) {
-                        XFreeEventData(dpy, cookie);
-                        continue;
-                    }
-                    lasttime = data->time;
-                    XFreeEventData(dpy, cookie);
-#endif
                     if (cookie->evtype == XI_RawMotion) {
                         if (options.auto_hide_cursor && options.cursor_visible && !cursor_visible) {
                             show_cursor();
@@ -460,7 +447,7 @@ static int grab_keys() {
                 fprintf(stderr, "Could not convert key to keycode\n");
                 return 1;
             }
-            for (int j = 0; j < sizeof(modifiers) / sizeof(modifiers[0]); ++j) {
+            for (size_t j = 0; j < sizeof(modifiers) / sizeof(modifiers[0]); ++j) {
                 XGrabKey(dpy, c, keys[i].modifiers | modifiers[j], root, 1, GrabModeAsync, GrabModeAsync);
             }
         }
