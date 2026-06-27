@@ -233,8 +233,7 @@ static int init_window() {
 
     /* let clicks fall through */
     /* after https://stackoverflow.com/a/9279747 */
-    XRectangle rect;
-    XserverRegion region = XFixesCreateRegion(dpy, &rect, 1);
+    XserverRegion region = XFixesCreateRegion(dpy, NULL, 0);
     XFixesSetWindowShapeRegion(dpy, win, ShapeInput, 0, 0, region);
     XFixesDestroyRegion(dpy, region);
 
@@ -307,7 +306,7 @@ static void handle_key(KeySym keysym, unsigned int modifiers) {
     }
 }
 
-static void main_loop() {
+static int main_loop() {
     XEvent ev;
     fd_set fds;
     int fd = ConnectionNumber(dpy);
@@ -319,7 +318,10 @@ static void main_loop() {
     Time lasttime = 0;
 #endif
 
-    pipe(selfpipe);
+    if (pipe(selfpipe) < 0) {
+        perror("pipe() failed");
+        return 1;
+    }
 
     while (1) {
         XFlush(dpy);
@@ -410,6 +412,7 @@ static void main_loop() {
             }
         }
     }
+    return 0;
 }
 
 static int init_colors() {
@@ -716,7 +719,7 @@ int main(int argc, char* argv[]) {
     signal(SIGINT, sig_handler);
     signal(SIGTERM, sig_handler);
 
-    main_loop();
+    res = main_loop();
 
     if (!cursor_visible) {
         show_cursor();
@@ -727,5 +730,5 @@ int main(int argc, char* argv[]) {
     XDestroyWindow(dpy, win);
     XCloseDisplay(dpy);
 
-    return 0;
+    return res;
 }
