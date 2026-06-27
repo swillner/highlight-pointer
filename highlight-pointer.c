@@ -35,6 +35,7 @@
 #include <X11/extensions/shape.h>
 #include <errno.h>
 #include <getopt.h>
+#include <limits.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -554,6 +555,36 @@ static struct option long_options[] = {{"auto-hide-cursor", no_argument, &option
                                        {"key-toggle-auto-hide-highlight", required_argument, NULL, KEY_TOGGLE_AUTOHIDE_HIGHLIGHT + KEY_OPTION_OFFSET},
                                        {NULL, 0, NULL, 0}};
 
+static int parse_int_option(const char* name, const char* s, int min, int max, int* value) {
+    char* end;
+    long parsed;
+
+    errno = 0;
+    parsed = strtol(s, &end, 10);
+    if (end == s || *end != '\0' || errno == ERANGE || parsed < min || parsed > max) {
+        fprintf(stderr, "Invalid %s value %s\n", name, s);
+        return 1;
+    }
+
+    *value = (int)parsed;
+    return 0;
+}
+
+static int parse_double_option(const char* name, const char* s, double min, double max, double* value) {
+    char* end;
+    double parsed;
+
+    errno = 0;
+    parsed = strtod(s, &end);
+    if (end == s || *end != '\0' || errno == ERANGE || parsed != parsed || parsed < min || parsed > max) {
+        fprintf(stderr, "Invalid %s value %s\n", name, s);
+        return 1;
+    }
+
+    *value = parsed;
+    return 0;
+}
+
 static int set_options(int argc, char* argv[]) {
     options.auto_hide_cursor = 0;
     options.auto_hide_highlight = 0;
@@ -583,7 +614,9 @@ static int set_options(int argc, char* argv[]) {
             case 0:
                 break;
             case 'a':
-                options.opacity = atof(optarg);
+                if (parse_double_option("opacity", optarg, 0.0, 1.0, &options.opacity)) {
+                    return 1;
+                }
                 break;
             case 'c':
                 options.released_color_string = optarg;
@@ -594,9 +627,7 @@ static int set_options(int argc, char* argv[]) {
                 return -1;
 
             case 'o':
-                options.outline = atoi(optarg);
-                if (options.outline < 0) {
-                    fprintf(stderr, "Invalid outline value %s\n", optarg);
+                if (parse_int_option("outline", optarg, 0, INT_MAX, &options.outline)) {
                     return 1;
                 }
                 break;
@@ -606,17 +637,13 @@ static int set_options(int argc, char* argv[]) {
                 break;
 
             case 'r':
-                options.radius = atoi(optarg);
-                if (options.radius <= 0) {
-                    fprintf(stderr, "Invalid radius value %s\n", optarg);
+                if (parse_int_option("radius", optarg, 1, INT_MAX, &options.radius)) {
                     return 1;
                 }
                 break;
 
             case 't':
-                options.hide_timeout = atoi(optarg);
-                if (options.hide_timeout <= 0) {
-                    fprintf(stderr, "Invalid timeout value %s\n", optarg);
+                if (parse_int_option("timeout", optarg, 1, INT_MAX, &options.hide_timeout)) {
                     return 1;
                 }
                 break;
