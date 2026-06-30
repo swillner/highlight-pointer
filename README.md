@@ -98,6 +98,7 @@ DISPLAY OPTIONS
       --opacity OPACITY       window opacity (0.0 - 1.0) [default: 1.0]
       --force-raise           raise highlighter on every pointer motion
       --hide-highlight        start with highlighter hidden
+      --single-instance       exit if another instance is already running
       --show-cursor           start with cursor shown
 
 TIMEOUT OPTIONS

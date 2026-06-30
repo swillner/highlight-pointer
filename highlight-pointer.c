@@ -34,12 +34,14 @@
 #include <X11/extensions/Xfixes.h>
 #include <X11/extensions/shape.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <limits.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
 #include <sys/select.h>
 #include <unistd.h>
 
@@ -49,6 +51,7 @@ static Window win;
 static Window root;
 static int screen;
 static int selfpipe[2]; /* for self-pipe trick to cancel select() call */
+static int lock_fd = -1;
 
 #define KEY_MODMAP_SIZE 4
 static struct {
@@ -97,11 +100,13 @@ static struct {
     int highlight_visible;
     int outline;
     int radius;
+    int single_instance;
     double opacity;
 } options;
 
 static void redraw();
 static int get_pointer_position(int* x, int* y);
+static int acquire_single_instance_lock();
 
 static void show_cursor() {
     XFixesShowCursor(dpy, root);
@@ -513,6 +518,7 @@ static void print_usage(const char* name) {
         "      --opacity OPACITY       window opacity (0.0 - 1.0) [default: 1.0]\n"
         "      --force-raise           raise highlighter on every pointer motion\n"
         "      --hide-highlight        start with highlighter hidden\n"
+        "      --single-instance       exit if another instance is already running\n"
         "      --show-cursor           start with cursor shown\n"
         "\n"
         "TIMEOUT OPTIONS\n"
@@ -551,6 +557,7 @@ static struct option long_options[] = {{"auto-hide-cursor", no_argument, &option
                                        {"radius", required_argument, NULL, 'r'},
                                        {"released-color", required_argument, NULL, 'c'},
                                        {"show-cursor", no_argument, &options.cursor_visible, 1},
+                                       {"single-instance", no_argument, &options.single_instance, 1},
                                        {"key-quit", required_argument, NULL, KEY_QUIT + KEY_OPTION_OFFSET},
                                        {"key-toggle-cursor", required_argument, NULL, KEY_TOGGLE_CURSOR + KEY_OPTION_OFFSET},
                                        {"key-toggle-highlight", required_argument, NULL, KEY_TOGGLE_HIGHLIGHT + KEY_OPTION_OFFSET},
@@ -597,6 +604,7 @@ static int set_options(int argc, char* argv[]) {
     options.opacity = 1.0;
     options.radius = 5;
     options.outline = 0;
+    options.single_instance = 0;
     options.hide_timeout = 3;
     options.pressed_color_string = "#1f77b4";
     options.released_color_string = "#d62728";
@@ -660,6 +668,42 @@ static int set_options(int argc, char* argv[]) {
     return 0;
 }
 
+static int acquire_single_instance_lock() {
+    const char* dir = getenv("XDG_RUNTIME_DIR");
+    char path[4096];
+
+    if (!dir || dir[0] == '\0') {
+        dir = getenv("TMPDIR");
+    }
+    if (!dir || dir[0] == '\0') {
+        dir = "/tmp";
+    }
+
+    if (snprintf(path, sizeof(path), "%s/highlight-pointer-%ld.lock", dir, (long)getuid()) >= (int)sizeof(path)) {
+        fprintf(stderr, "Lock file path too long\n");
+        return 1;
+    }
+
+    lock_fd = open(path, O_RDWR | O_CREAT, 0600);
+    if (lock_fd < 0) {
+        perror("open lock file failed");
+        return 1;
+    }
+
+    if (flock(lock_fd, LOCK_EX | LOCK_NB) < 0) {
+        if (errno == EWOULDBLOCK) {
+            fprintf(stderr, "highlight-pointer is already running\n");
+        } else {
+            perror("lock file failed");
+        }
+        close(lock_fd);
+        lock_fd = -1;
+        return 1;
+    }
+
+    return 0;
+}
+
 static int xerror_handler(Display* dpy_p, XErrorEvent* err) {
     if (err->request_code == 33 /* XGrabKey */ && err->error_code == BadAccess) {
         fprintf(stderr, "Key combination already grabbed by a different process\n");
@@ -683,6 +727,10 @@ int main(int argc, char* argv[]) {
         return 0;
     } else if (res > 0) {
         return res;
+    }
+
+    if (options.single_instance && acquire_single_instance_lock()) {
+        return 1;
     }
 
     dpy = XOpenDisplay(NULL); /* defaults to DISPLAY env var */
