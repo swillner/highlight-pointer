@@ -37,12 +37,41 @@ libraries. On Debian/Ubuntu, just install these using
 sudo apt-get install libx11-dev libxext-dev libxfixes-dev libxi-dev
 ```
 
+On FreeBSD, install the X11 dependencies using
+
+```
+pkg install libX11 libXext libXfixes libXi
+```
+
 ### Building
 
 Just build the `highlight-pointer` binary using
 
 ```
 make
+```
+
+The makefile uses the standard `CPPFLAGS`, `CFLAGS`, `LDFLAGS`, and
+`LDLIBS` variables, so nonstandard X11 locations can be passed without
+editing the file. For example, on systems where X11 is installed below
+`/usr/local`:
+
+```
+make CPPFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib"
+```
+
+If your compiler is supplied by Conda or another environment and cannot
+find the system X11 headers, either use the system compiler:
+
+```
+make CC=cc
+```
+
+or pass the include and library paths explicitly. When `pkg-config` is
+available, it can provide those flags:
+
+```
+make CPPFLAGS="$(pkg-config --cflags x11 xext xfixes xi)" LDLIBS="$(pkg-config --libs x11 xext xfixes xi)"
 ```
 
 ## Usage
