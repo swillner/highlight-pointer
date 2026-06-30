@@ -92,6 +92,7 @@ static struct {
     int auto_hide_cursor;
     int auto_hide_highlight;
     int cursor_visible;
+    int force_raise;
     int hide_timeout;
     int highlight_visible;
     int outline;
@@ -112,12 +113,17 @@ static void hide_cursor() {
     cursor_visible = 0;
 }
 
+static void raise_highlight() {
+    XRaiseWindow(dpy, win);
+}
+
 static void show_highlight() {
     int x, y;
     int total_radius = options.radius + options.outline;
     get_pointer_position(&x, &y);
     XMoveWindow(dpy, win, x - total_radius - 1, y - total_radius - 1);
     XMapWindow(dpy, win);
+    raise_highlight();
     redraw();
     highlight_visible = 1;
 }
@@ -217,15 +223,20 @@ static int init_window() {
 
     /* always stay on top */
     /* after gdk_wmspec_change_state */
+    Atom wm_state_atom = XInternAtom(dpy, "_NET_WM_STATE", False);
+    Atom wm_state_above_atoms[] = {XInternAtom(dpy, "_NET_WM_STATE_ABOVE", False), XInternAtom(dpy, "_NET_WM_STATE_STAYS_ON_TOP", False)};
+    XChangeProperty(dpy, win, wm_state_atom, XA_ATOM, 32, PropModeReplace, (unsigned char*)wm_state_above_atoms,
+                    sizeof(wm_state_above_atoms) / sizeof(wm_state_above_atoms[0]));
+
     XClientMessageEvent xclient;
     memset(&xclient, 0, sizeof(xclient));
     xclient.type = ClientMessage;
     xclient.window = win;
-    xclient.message_type = XInternAtom(dpy, "_NET_WM_STATE", False);
+    xclient.message_type = wm_state_atom;
     xclient.format = 32;
     xclient.data.l[0] = 1 /* _NET_WM_STATE_ADD */;
-    xclient.data.l[1] = XInternAtom(dpy, "_NET_WM_STATE_STAYS_ON_TOP", False);
-    xclient.data.l[2] = 0;
+    xclient.data.l[1] = wm_state_above_atoms[0];
+    xclient.data.l[2] = wm_state_above_atoms[1];
     xclient.data.l[3] = 1;
     xclient.data.l[4] = 0;
     XSendEvent(dpy, root, False, SubstructureRedirectMask | SubstructureNotifyMask, (XEvent*)&xclient);
@@ -355,6 +366,9 @@ static int main_loop() {
                         } else if (highlight_visible) {
                             get_pointer_position(&x, &y);
                             XMoveWindow(dpy, win, x - total_radius - 1, y - total_radius - 1);
+                            if (options.force_raise) {
+                                raise_highlight();
+                            }
                             /* unfortunately, this causes increase of the X server's cpu usage */
                         }
                         continue;
@@ -387,7 +401,7 @@ static int main_loop() {
                 }
                 if (ev.type == VisibilityNotify) {
                     /* needed to deal with menus, etc. overlapping the hightlight win */
-                    XRaiseWindow(dpy, win);
+                    raise_highlight();
                     continue;
                 }
             }
@@ -497,6 +511,7 @@ static void print_usage(const char* name) {
         "  -o, --outline OUTLINE       line width of outline or 0 for filled dot [default: 0]\n"
         "  -r, --radius RADIUS         dot radius in pixels [default: 5]\n"
         "      --opacity OPACITY       window opacity (0.0 - 1.0) [default: 1.0]\n"
+        "      --force-raise           raise highlighter on every pointer motion\n"
         "      --hide-highlight        start with highlighter hidden\n"
         "      --show-cursor           start with cursor shown\n"
         "\n"
@@ -526,6 +541,7 @@ static void print_usage(const char* name) {
 
 static struct option long_options[] = {{"auto-hide-cursor", no_argument, &options.auto_hide_cursor, 1},
                                        {"auto-hide-highlight", no_argument, &options.auto_hide_highlight, 1},
+                                       {"force-raise", no_argument, &options.force_raise, 1},
                                        {"help", no_argument, NULL, 'h'},
                                        {"hide-highlight", no_argument, &options.highlight_visible, 0},
                                        {"hide-timeout", required_argument, NULL, 't'},
@@ -576,6 +592,7 @@ static int set_options(int argc, char* argv[]) {
     options.auto_hide_cursor = 0;
     options.auto_hide_highlight = 0;
     options.cursor_visible = 0;
+    options.force_raise = 0;
     options.highlight_visible = 1;
     options.opacity = 1.0;
     options.radius = 5;

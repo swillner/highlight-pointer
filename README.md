@@ -96,6 +96,7 @@ DISPLAY OPTIONS
   -o, --outline OUTLINE       line width of outline or 0 for filled dot [default: 0]
   -r, --radius RADIUS         dot radius in pixels [default: 5]
       --opacity OPACITY       window opacity (0.0 - 1.0) [default: 1.0]
+      --force-raise           raise highlighter on every pointer motion
       --hide-highlight        start with highlighter hidden
       --show-cursor           start with cursor shown
 
